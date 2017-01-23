@@ -1,16 +1,18 @@
 #
 # .bash_profile
 #
-# @author Jeff Geerling
+# @author Janne Lauding
+# @author Jeff Geerling (Original)
 # @see .inputrc
 #
 
-# Nicer prompt.
-export PS1="\[\e[0;32m\]\]\[\] \[\e[1;32m\]\]\t \[\e[0;2m\]\]\w \[\e[0m\]\]\[$\] "
+# Color LS
+colorflag="-G"
+alias ls="command ls ${colorflag}"
+alias l="ls -lF ${colorflag}" # all files, in long format
+alias la="ls -laF ${colorflag}" # all files inc dotfiles, in long format
+alias lsd='ls -lF ${colorflag} | grep "^d"' # only directories
 
-# Use colors.
-export CLICOLOR=1
-export LSCOLORS=ExFxCxDxBxegedabagacad
 
 # Custom $PATH with extra locations.
 export PATH=/usr/local/bin:/usr/local/sbin:$HOME/bin:/usr/local/git/bin:$HOME/.composer/vendor/bin:$PATH
@@ -27,55 +29,12 @@ then
   source ~/.bashrc
 fi
 
-# Route local traffic over ethernet when using certain WiFi networks w/o proxy.
-function route_add() {
-  sudo route add -net 10.0.0.0/8 -interface en0
-}
-
-# Delete the route added above.
-function route_delete() {
-  sudo route delete 10.0.0.0
-}
-
-# Route IRC traffic through one of my servers.
-# Use SOCKS5 settings 'localhost' and 6667 for server/port.
-function irc_proxy() {
-  ssh -vD 6667 geerlingguy@atl1.servercheck.in
-}
-
-# Syntax-highlight code for copying and pasting.
-# Requires highlight (`brew install highlight`).
-function pretty() {
-  pbpaste | highlight --syntax=$1 -O rtf | pbcopy
-}
-
 # Git aliases.
 alias gs='git status'
-alias gc='git commit'
-alias gp='git pull --rebase'
-alias gcam='git commit -am'
+alias ga='git add .'
+alias gc='git commit -m' # requires a commit message
+alias gp='git push'
 alias gl='git log --graph --pretty=format:"%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit'
-alias gsd='git svn dcommit'
-alias gsfr='git svn fetch && git svn rebase'
-
-# Git upstream branch syncer.
-# Usage: gsync master (checks out master, pull upstream, push origin).
-function gsync() {
-  if [[ ! "$1" ]] ; then
-      echo "You must supply a branch."
-      return 0
-  fi
-
-  BRANCHES=$(git branch --list $1)
-  if [ ! "$BRANCHES" ] ; then
-     echo "Branch $1 does not exist."
-     return 0
-  fi
-
-  git checkout "$1" && \
-  git pull upstream "$1" && \
-  git push origin "$1"
-}
 
 # Turn on Git autocomplete.
 brew_prefix=`brew --prefix`
@@ -96,44 +55,103 @@ export NVM_DIR="$HOME/.nvm"
 # Disable cowsay in Ansible.
 export ANSIBLE_NOCOWS=1
 
-# Delete a given line number in the known_hosts file.
-knownrm() {
-  re='^[0-9]+$'
-  if ! [[ $1 =~ $re ]] ; then
-    echo "error: line number missing" >&2;
+#
+# Folder aliases
+#
+
+# Quicker navigation
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+
+# Shortcuts to my Code folder in my home directory
+alias code="cd ~/Sites"
+alias dropbox="cd ~/Dropbox"
+alias downloads="cd ~/Downloads"
+
+# Enable aliases to be sudo’ed
+alias sudo='sudo '
+
+#
+# Development Aliases
+#
+
+# Start a PHP server in current directory
+alias phpser="php -S localhost:8000"
+
+# Start a Python server in current directory
+alias pyser="python -m SimpleHTTPServer 9001"
+
+
+#
+# Prompt Colors
+#
+if [[ $COLORTERM = gnome-* && $TERM = xterm ]] && infocmp gnome-256color >/dev/null 2>&1; then
+  export TERM=gnome-256color
+elif infocmp xterm-256color >/dev/null 2>&1; then
+  export TERM=xterm-256color
+fi
+
+if tput setaf 1 &> /dev/null; then
+  tput sgr0
+  if [[ $(tput colors) -ge 256 ]] 2>/dev/null; then
+    BLACK=$(tput setaf 190)
+    MAGENTA=$(tput setaf 9)
+    ORANGE=$(tput setaf 172)
+    GREEN=$(tput setaf 190)
+    PURPLE=$(tput setaf 141)
+    WHITE=$(tput setaf 0)
   else
-    sed -i '' "$1d" ~/.ssh/known_hosts
+    BLACK=$(tput setaf 190)
+    MAGENTA=$(tput setaf 5)
+    ORANGE=$(tput setaf 4)
+    GREEN=$(tput setaf 2)
+    PURPLE=$(tput setaf 1)
+    WHITE=$(tput setaf 7)
   fi
+  BOLD=$(tput bold)
+  RESET=$(tput sgr0)
+else
+  BLACK="\033[01;30m"
+  MAGENTA="\033[1;31m"
+  ORANGE="\033[1;33m"
+  GREEN="\033[1;32m"
+  PURPLE="\033[1;35m"
+  WHITE="\033[1;37m"
+  BOLD=""
+  RESET="\033[m"
+fi
+
+export BLACK
+export MAGENTA
+export ORANGE
+export GREEN
+export PURPLE
+export WHITE
+export BOLD
+export RESET
+
+# Git branch details
+function parse_git_dirty() {
+  [[ $(git status 2> /dev/null | tail -n1) != *"working directory clean"* ]] && echo "*"
+}
+function parse_git_branch() {
+  git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1$(parse_git_dirty)/"
 }
 
-# Ask for confirmation when 'prod' is in a command string.
-prod_command_trap () {
-  if [[ $BASH_COMMAND == *prod* ]]
-  then
-    read -p "Are you sure you want to run this command on prod [Y/n]? " -n 1 -r
-    if [[ $REPLY =~ ^[Yy]$ ]]
-    then
-      echo -e "\nRunning command \"$BASH_COMMAND\" \n"
-    else
-      echo -e "\nCommand was not run.\n"
-      return 1
-    fi
-  fi
-}
-shopt -s extdebug
-trap prod_command_trap DEBUG
+# Change this symbol to something sweet.
+# (http://en.wikipedia.org/wiki/Unicode_symbols)
+symbol="⚡ "
 
-function blt() {
-  if [ "`git rev-parse --show-cdup 2> /dev/null`" != "" ]; then
-    GIT_ROOT=$(git rev-parse --show-cdup)
-  else
-    GIT_ROOT="."
-  fi
+export PS1="\[${BOLD}${MAGENTA}\]\u \[$WHITE\]in \[$GREEN\]\w\[$WHITE\]\$([[ -n \$(git branch 2> /dev/null) ]] && echo \" on \")\[$PURPLE\]\$(parse_git_branch)\[$WHITE\]\n$symbol\[$RESET\]"
+export PS2="\[$ORANGE\]→ \[$RESET\]"
 
-  if [ -f "$GIT_ROOT/vendor/bin/blt" ]; then
-    $GIT_ROOT/vendor/bin/blt "$@"
-  else
-    echo "You must run this command from within a BLT-generated project repository."
-    exit 1
-  fi
-}
+
+### Misc
+
+# Only show the current directory's name in the tab
+export PROMPT_COMMAND='echo -ne "\033]0;${PWD##*/}\007"'
+
+# init z! (https://github.com/rupa/z)
+. ~/z.sh

@@ -1,6 +1,6 @@
 [user]
-  name = Jeff Geerling
-  email = geerlingguy@mac.com
+  name = Janne Lauding
+  email = janne@lauding.se
 [core]
   editor = vi
   excludesfile = ~/.gitignore
